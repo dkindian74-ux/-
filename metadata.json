@@ -1,0 +1,6 @@
+{
+  "name": "मेरी मजदूरी",
+  "description": "दैनिक मजदूरी और महीने की हाजिरी व वेतन निकालने का आसान कैलकुलेटर",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
