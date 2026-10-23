@@ -29,8 +29,8 @@ import java.util.Locale
 data class WageUiState(
     val dailyWageInput: String = "",
     val advanceInput: String = "0",
-    val selectedMonth: Int = 10, // Default October (अक्टूबर)
-    val selectedYear: Int = 2026, // Default 2026
+    val selectedMonth: Int = CalendarUtils.getPreviousMonthAndYear().first, // Dynamic previous month (1..12)
+    val selectedYear: Int = CalendarUtils.getPreviousMonthAndYear().second, // Dynamic previous year
     val wageInputError: String? = null,
     val advanceInputError: String? = null,
     val currentScreen: AppScreen = AppScreen.MAIN_INPUT,
@@ -88,14 +88,12 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         )
 
     private fun createInitialState(): WageUiState {
-        val now = Calendar.getInstance()
-        val currentYear = now.get(Calendar.YEAR)
-        val currentMonth = now.get(Calendar.MONTH) + 1 // 1..12
+        val (prevMonth, prevYear) = CalendarUtils.getPreviousMonthAndYear()
         return WageUiState(
             dailyWageInput = "",
             advanceInput = "0",
-            selectedMonth = currentMonth,
-            selectedYear = currentYear,
+            selectedMonth = prevMonth,
+            selectedYear = prevYear,
             wageInputError = null,
             advanceInputError = null,
             currentScreen = AppScreen.MAIN_INPUT,
@@ -637,16 +635,14 @@ class WageCalculatorViewModel @JvmOverloads constructor(
      * Note: Does NOT delete saved history records!
      */
     fun startNewCalculation() {
-        val now = Calendar.getInstance()
-        val currentYear = now.get(Calendar.YEAR)
-        val currentMonth = now.get(Calendar.MONTH) + 1
+        val (prevMonth, prevYear) = CalendarUtils.getPreviousMonthAndYear()
 
         _uiState.update {
             it.copy(
                 dailyWageInput = "",
                 advanceInput = "0",
-                selectedMonth = currentMonth,
-                selectedYear = currentYear,
+                selectedMonth = prevMonth,
+                selectedYear = prevYear,
                 wageInputError = null,
                 advanceInputError = null,
                 currentScreen = AppScreen.MAIN_INPUT,

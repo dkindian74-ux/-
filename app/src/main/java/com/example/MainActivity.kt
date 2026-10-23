@@ -18,11 +18,20 @@ import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.MainInputScreen
 import com.example.ui.theme.MeriMazdooriTheme
 import com.example.viewmodel.WageCalculatorViewModel
+import com.google.android.gms.ads.MobileAds
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Initialize Google Mobile Ads (AdMob) SDK with test configuration
+        try {
+            MobileAds.initialize(this) {}
+        } catch (e: Exception) {
+            // Safe fallback if Play Services is absent in test environment
+        }
+
         setContent {
             MeriMazdooriTheme {
                 Surface(

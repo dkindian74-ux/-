@@ -393,4 +393,72 @@ class MeriMazdooriRobolectricTest {
         // 3. Test execution of shareCalculationAsImage without exception
         ShareUtils.shareCalculationAsImage(app, result)
     }
+
+    /**
+     * Test Feature 1: Previous Month Dynamic Calculation & Year Transitions
+     * - October 2026 -> September 2026
+     * - January 2027 -> December 2026 (Year transition)
+     * - March 2027 -> February 2027
+     * - January 2028 -> December 2027
+     */
+    @Test
+    fun testPreviousMonthDynamicCalculations() {
+        // October 2026 -> September 2026
+        val oct2026 = java.util.GregorianCalendar(2026, java.util.Calendar.OCTOBER, 15)
+        val (sepMonth, sepYear) = CalendarUtils.getPreviousMonthAndYear(oct2026)
+        assertEquals(9, sepMonth)
+        assertEquals(2026, sepYear)
+
+        // January 2027 -> December 2026 (Year transition)
+        val jan2027 = java.util.GregorianCalendar(2027, java.util.Calendar.JANUARY, 10)
+        val (decMonth, decYear) = CalendarUtils.getPreviousMonthAndYear(jan2027)
+        assertEquals(12, decMonth)
+        assertEquals(2026, decYear)
+
+        // March 2027 -> February 2027
+        val mar2027 = java.util.GregorianCalendar(2027, java.util.Calendar.MARCH, 1)
+        val (febMonth, febYear) = CalendarUtils.getPreviousMonthAndYear(mar2027)
+        assertEquals(2, febMonth)
+        assertEquals(2027, febYear)
+
+        // January 2028 -> December 2027
+        val jan2028 = java.util.GregorianCalendar(2028, java.util.Calendar.JANUARY, 31)
+        val (dec2027Month, dec2027Year) = CalendarUtils.getPreviousMonthAndYear(jan2028)
+        assertEquals(12, dec2027Month)
+        assertEquals(2027, dec2027Year)
+    }
+
+    /**
+     * Test ViewModel default selection and startNewCalculation reset
+     */
+    @Test
+    fun testViewModelDefaultPreviousMonthAndReset() {
+        val viewModel = createViewModel()
+        val (expectedMonth, expectedYear) = CalendarUtils.getPreviousMonthAndYear()
+        assertEquals(expectedMonth, viewModel.uiState.value.selectedMonth)
+        assertEquals(expectedYear, viewModel.uiState.value.selectedYear)
+
+        // Test manual selection
+        viewModel.onMonthSelected(8)
+        viewModel.onYearSelected(2025)
+        assertEquals(8, viewModel.uiState.value.selectedMonth)
+        assertEquals(2025, viewModel.uiState.value.selectedYear)
+
+        // Test startNewCalculation resets back to dynamic previous month
+        viewModel.startNewCalculation()
+        assertEquals(expectedMonth, viewModel.uiState.value.selectedMonth)
+        assertEquals(expectedYear, viewModel.uiState.value.selectedYear)
+    }
+
+    /**
+     * Test Feature 2: Google AdMob Official IDs in Manifest and Component
+     */
+    @Test
+    fun testAdMobConfigurationConstants() {
+        assertEquals("ca-app-pub-4130353983461080/5833451535", com.example.ui.components.ADMOB_BANNER_AD_UNIT_ID)
+        assertEquals("ca-app-pub-3940256099942544/9214589741", com.example.ui.components.TEST_BANNER_AD_UNIT_ID)
+        val appInfo = app.packageManager.getApplicationInfo(app.packageName, android.content.pm.PackageManager.GET_META_DATA)
+        val adMobAppId = appInfo.metaData.getString("com.google.android.gms.ads.APPLICATION_ID")
+        assertEquals("ca-app-pub-4130353983461080~3590431574", adMobAppId)
+    }
 }

@@ -40,4 +40,18 @@ object CalendarUtils {
         val calendar = GregorianCalendar()
         return calendar.isLeapYear(year)
     }
+
+    /**
+     * Dynamically calculates the previous calendar month and year based on a given Calendar instance (defaults to current date).
+     * Correctly handles year transitions (e.g., January 2027 -> December 2026).
+     * Returns Pair(monthNumber 1..12, year).
+     */
+    fun getPreviousMonthAndYear(calendar: Calendar = Calendar.getInstance()): Pair<Int, Int> {
+        val cal = (calendar.clone() as Calendar).apply {
+            add(Calendar.MONTH, -1)
+        }
+        val prevMonth = cal.get(Calendar.MONTH) + 1 // 1..12
+        val prevYear = cal.get(Calendar.YEAR)
+        return Pair(prevMonth, prevYear)
+    }
 }

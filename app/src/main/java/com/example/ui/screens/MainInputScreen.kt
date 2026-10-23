@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.HINDI_MONTHS
 import com.example.model.MonthItem
+import com.example.ui.components.AdMobBanner
 import com.example.ui.theme.BrandAmber
 import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandBlueDark
@@ -227,7 +228,16 @@ fun MainInputScreen(
             // Informational helper note for daily-wage workers
             QuickGuideNote()
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Dedicated Google AdMob Banner Ad placement near the bottom of Main Screen
+            AdMobBanner(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("main_banner_ad")
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
