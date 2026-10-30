@@ -15,6 +15,8 @@ object CalendarUtils {
         return calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
     }
 
+    fun getDaysInMonth(month: Int, year: Int, unused: Unit = Unit): Int = getDaysInMonth(year, month)
+
     /**
      * Returns the 0-based index of the weekday for the 1st of the month.
      * 0 = Sunday (रवि), 1 = Monday (सोम), ..., 6 = Saturday (शनि).
@@ -25,6 +27,10 @@ object CalendarUtils {
         // Calendar.SUNDAY == 1, so (dayOfWeek - Calendar.SUNDAY) -> 0..6
         return dayOfWeek - Calendar.SUNDAY
     }
+
+    fun getFirstDayOffset(year: Int, month: Int): Int = getFirstDayOfWeekOffset(year, month)
+    fun getFirstDayOffset(month: Int, year: Int, unused: Unit = Unit): Int = getFirstDayOfWeekOffset(year, month)
+
 
     /**
      * Returns the Hindi name of the month (1..12).

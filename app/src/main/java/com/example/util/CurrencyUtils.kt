@@ -29,6 +29,9 @@ object CurrencyUtils {
         return "₹$formattedNumber"
     }
 
+    fun formatRupees(amount: Double): String = formatIndianRupees(amount)
+
+
     /**
      * Formats number in the Indian numbering system (xx,xx,xxx)
      */

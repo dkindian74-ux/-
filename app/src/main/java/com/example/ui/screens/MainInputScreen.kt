@@ -16,81 +16,59 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CurrencyRupee
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.HINDI_MONTHS
-import com.example.model.MonthItem
 import com.example.ui.components.AdMobBanner
 import com.example.ui.theme.BrandAmber
 import com.example.ui.theme.BrandBlue
 import com.example.ui.theme.BrandBlueDark
-import com.example.viewmodel.WageUiState
 
+/**
+ * Main Home Screen of "मेरी मजदूरी" App.
+ * Displays the 3 primary options cleanly:
+ * 1. दिनों का हिसाब
+ * 2. एडवांस पैसा लिया
+ * 3. महीने का हिसाब
+ * Plus the preserved History button at top-right.
+ */
 @Composable
 fun MainInputScreen(
-    uiState: WageUiState,
     historyCount: Int,
-    onWageChange: (String) -> Unit,
-    onMonthSelected: (Int) -> Unit,
-    onYearSelected: (Int) -> Unit,
-    onProceed: () -> Unit,
+    onOpenDaysCalculation: () -> Unit,
+    onOpenAdvanceRecords: () -> Unit,
+    onOpenMonthCalculation: () -> Unit,
     onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    var showMonthDialog by remember { mutableStateOf(false) }
-    var showYearDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -107,7 +85,7 @@ fun MainInputScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top action bar with History button
+            // Top action bar with existing History button preserved at original top-right location
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -136,101 +114,110 @@ fun MainInputScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // 1. App Icon, 2. Title, 3. Subtitle
-            AppHeader()
+            // App Header
+            HomeHeader()
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
-            // Main Input Container Card
+            // Section Label
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "मुख्य विकल्प चुनें:",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Option 1: दिनों का हिसाब
+            HomeFeatureCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("btn_days_calculation"),
+                badgeNumber = "1",
+                title = "दिनों का हिसाब",
+                subtitle = "पूरे दिन, आधे दिन/OT और एडवांस से तुरंत हिसाब करें (बिना कैलेंडर)",
+                icon = Icons.Default.Calculate,
+                iconBg = Color(0xFFEFF6FF),
+                iconTint = BrandBlue,
+                borderColor = Color(0xFFBFDBFE),
+                onClick = onOpenDaysCalculation
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Option 2: एडवांस पैसा लिया
+            HomeFeatureCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("btn_advance_records"),
+                badgeNumber = "2",
+                title = "एडवांस पैसा लिया",
+                subtitle = "ठेकेदारों या मालिकों से लिए एडवांस पैसे का निजी रिकॉर्ड रखें",
+                icon = Icons.Default.AccountBalanceWallet,
+                iconBg = Color(0xFFFEF3C7),
+                iconTint = Color(0xFFD97706),
+                borderColor = Color(0xFFFDE68A),
+                onClick = onOpenAdvanceRecords
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Option 3: महीने का हिसाब
+            HomeFeatureCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("btn_month_calculation"),
+                badgeNumber = "3",
+                title = "महीने का हिसाब",
+                subtitle = "महीने और साल का चयन करके पूरे महीने की हाजिरी कैलेंडर से निकालें",
+                icon = Icons.Default.CalendarMonth,
+                iconBg = Color(0xFFF0FDF4),
+                iconTint = Color(0xFF16A34A),
+                borderColor = Color(0xFFBBF7D0),
+                onClick = onOpenMonthCalculation
+            )
+
+            Spacer(modifier = Modifier.height(26.dp))
+
+            // Helpful Guide Note for Workers
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                shape = RoundedCornerShape(16.dp)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp)
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 4. Daily Wage Input Field
-                    DailyWageInputSection(
-                        wage = uiState.dailyWageInput,
-                        errorMessage = uiState.wageInputError,
-                        onWageChange = onWageChange,
-                        onDone = {
-                            keyboardController?.hide()
-                            onProceed()
-                        }
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = BrandBlue,
+                        modifier = Modifier.size(22.dp)
                     )
-
-                    Spacer(modifier = Modifier.height(22.dp))
-
-                    // 5. Month Selector
-                    MonthSelectorField(
-                        selectedMonth = uiState.selectedMonth,
-                        onClick = {
-                            keyboardController?.hide()
-                            showMonthDialog = true
-                        }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "ऊपर दिए गए किसी भी विकल्प पर टच करके अपना हिसाब शुरू करें। आपका पुराना डेटा सुरक्षित रहता है।",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF1E3A8A),
+                        lineHeight = 18.sp
                     )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // 6. Year Selector
-                    YearSelectorField(
-                        selectedYear = uiState.selectedYear,
-                        onClick = {
-                            keyboardController?.hide()
-                            showYearDialog = true
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(26.dp))
-
-                    // 7. Primary Button: "हिसाब करें"
-                    Button(
-                        onClick = {
-                            keyboardController?.hide()
-                            onProceed()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .testTag("proceed_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BrandBlue
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarMonth,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "हिसाब करें",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Informational helper note for daily-wage workers
-            QuickGuideNote()
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Dedicated Google AdMob Banner Ad placement near the bottom of Main Screen
+            // AdMob Banner Ad
             AdMobBanner(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -240,41 +227,17 @@ fun MainInputScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
-
-    // Month Selection Dialog
-    if (showMonthDialog) {
-        MonthSelectionDialog(
-            selectedMonth = uiState.selectedMonth,
-            onMonthSelected = { month ->
-                onMonthSelected(month)
-                showMonthDialog = false
-            },
-            onDismiss = { showMonthDialog = false }
-        )
-    }
-
-    // Year Selection Dialog
-    if (showYearDialog) {
-        YearSelectionDialog(
-            selectedYear = uiState.selectedYear,
-            onYearSelected = { year ->
-                onYearSelected(year)
-                showYearDialog = false
-            },
-            onDismiss = { showYearDialog = false }
-        )
-    }
 }
 
 @Composable
-private fun AppHeader() {
+private fun HomeHeader() {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
         Box(
             modifier = Modifier
-                .size(60.dp)
+                .size(68.dp)
                 .clip(CircleShape)
                 .background(BrandBlue),
             contentAlignment = Alignment.Center
@@ -283,27 +246,24 @@ private fun AppHeader() {
                 imageVector = Icons.Default.Payments,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(36.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
             text = "मेरी मजदूरी",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 26.sp
-            ),
-            color = BrandBlueDark,
-            textAlign = TextAlign.Center
+            fontSize = 24.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color(0xFF0F172A)
         )
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "अपनी महीने की मजदूरी आसानी से निकालें",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "मजदूरों का सबसे सरल और भरोसेमंद डिजिटल हिसाब",
+            fontSize = 13.sp,
             color = Color(0xFF64748B),
             textAlign = TextAlign.Center
         )
@@ -311,439 +271,94 @@ private fun AppHeader() {
 }
 
 @Composable
-private fun DailyWageInputSection(
-    wage: String,
-    errorMessage: String?,
-    onWageChange: (String) -> Unit,
-    onDone: () -> Unit
+private fun HomeFeatureCard(
+    badgeNumber: String,
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    iconBg: Color,
+    iconTint: Color,
+    borderColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.CurrencyRupee,
-                contentDescription = null,
-                tint = BrandBlue,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "दैनिक मजदूरी (₹)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlueDark
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = wage,
-            onValueChange = onWageChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("wage_input"),
-            placeholder = {
-                Text("जैसे: 500", color = Color(0xFF94A3B8), fontSize = 16.sp)
-            },
-            leadingIcon = {
-                Text(
-                    text = "₹",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = BrandBlue
-                )
-            },
-            textStyle = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            ),
-            singleLine = true,
-            isError = errorMessage != null,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { onDone() }
-            ),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = BrandBlue,
-                unfocusedBorderColor = Color(0xFFCBD5E1),
-                errorBorderColor = MaterialTheme.colorScheme.error,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White
-            )
-        )
-
-        if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 2.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ErrorOutline,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.testTag("wage_error_text")
-                )
-            }
-        }
-
-        // Quick wage selection chips for convenience
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("300", "400", "500", "600").forEach { quickAmount ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (wage == quickAmount) BrandBlue else Color(0xFFF1F5F9))
-                        .clickable { onWageChange(quickAmount) }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "₹$quickAmount",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (wage == quickAmount) Color.White else Color(0xFF475569)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonthSelectorField(
-    selectedMonth: Int,
-    onClick: () -> Unit
-) {
-    val currentMonthItem = HINDI_MONTHS.find { it.monthNumber == selectedMonth } ?: HINDI_MONTHS[0]
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.CalendarMonth,
-                contentDescription = null,
-                tint = BrandBlue,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "महीना चुनें",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlueDark
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Clickable Month Card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .border(width = 1.dp, color = Color(0xFFCBD5E1), shape = RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp)
-                .testTag("month_selector"),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CalendarMonth,
-                        contentDescription = null,
-                        tint = BrandBlue,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "${currentMonthItem.hindiName} (${currentMonthItem.englishName})",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        ),
-                        color = Color(0xFF0F172A)
-                    )
-                }
-
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = "महीना बदलें",
-                    tint = BrandBlue,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun YearSelectorField(
-    selectedYear: Int,
-    onClick: () -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.DateRange,
-                contentDescription = null,
-                tint = BrandBlue,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "साल चुनें",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlueDark
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Clickable Year Card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .border(width = 1.dp, color = Color(0xFFCBD5E1), shape = RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp)
-                .testTag("year_selector"),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = null,
-                        tint = BrandBlue,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = selectedYear.toString(),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp
-                        ),
-                        color = Color(0xFF0F172A)
-                    )
-                }
-
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = "साल बदलें",
-                    tint = BrandBlue,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonthSelectionDialog(
-    selectedMonth: Int,
-    onMonthSelected: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "महीना चुनें",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlueDark
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                HINDI_MONTHS.forEach { item ->
-                    val isSelected = item.monthNumber == selectedMonth
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) BrandBlue.copy(alpha = 0.12f) else Color.Transparent)
-                            .clickable { onMonthSelected(item.monthNumber) }
-                            .padding(horizontal = 12.dp, vertical = 12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "${item.hindiName} (${item.englishName})",
-                                fontSize = 16.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) BrandBlue else Color(0xFF1E293B)
-                            )
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = BrandBlue,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("रद्द करें", fontWeight = FontWeight.Bold, color = BrandBlue)
-            }
-        },
-        shape = RoundedCornerShape(16.dp),
-        containerColor = Color.White
-    )
-}
-
-@Composable
-private fun YearSelectionDialog(
-    selectedYear: Int,
-    onYearSelected: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val yearRange = (2020..2035).toList()
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "साल चुनें",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = BrandBlueDark
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                yearRange.forEach { year ->
-                    val isSelected = year == selectedYear
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 3.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) BrandBlue.copy(alpha = 0.12f) else Color.Transparent)
-                            .clickable { onYearSelected(year) }
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = year.toString(),
-                                fontSize = 16.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) BrandBlue else Color(0xFF1E293B)
-                            )
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = BrandBlue,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("रद्द करें", fontWeight = FontWeight.Bold, color = BrandBlue)
-            }
-        },
-        shape = RoundedCornerShape(16.dp),
-        containerColor = Color.White
-    )
-}
-
-@Composable
-private fun QuickGuideNote() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFEFF6FF)
-        ),
-        shape = RoundedCornerShape(12.dp)
+        modifier = modifier
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Icon with badge
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(iconBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Title & Subtitle
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(iconTint),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = badgeNumber,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = title,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 16.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
             Icon(
-                imageVector = Icons.Default.CalendarMonth,
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = BrandBlue,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = "कैलेंडर खुलने पर सभी दिन पहले से 'उपस्थित' रहेंगे। जिस दिन काम नहीं किया, उस तारीख पर टच करके 'अनुपस्थित' कर सकते हैं।",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF1E3A8A),
-                lineHeight = 18.sp
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(20.dp)
             )
         }
     }

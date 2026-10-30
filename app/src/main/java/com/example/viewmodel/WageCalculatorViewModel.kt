@@ -5,12 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.AdvanceRecord
 import com.example.data.local.WageDatabase
 import com.example.data.local.WageRecord
 import com.example.data.repository.WageRepository
 import com.example.model.AppScreen
 import com.example.model.AttendanceStatus
 import com.example.model.CalculationResult
+import com.example.model.DaysCalculationResult
 import com.example.util.AttendanceSerializer
 import com.example.util.CalendarUtils
 import com.example.util.CurrencyUtils
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,7 +46,13 @@ data class WageUiState(
     val duplicateRecordPrompt: WageRecord? = null,
     val selectedHistoryRecord: WageRecord? = null,
     val showDeleteConfirmDialog: WageRecord? = null,
-    val showDeleteAllConfirmDialog: Boolean = false
+    val showDeleteAllConfirmDialog: Boolean = false,
+    // Days Calculation state
+    val daysDailyWageInput: String = "",
+    val daysFullDaysInput: String = "",
+    val daysHalfDaysInput: String = "",
+    val daysAdvanceInput: String = "",
+    val daysCalculationResult: DaysCalculationResult? = null
 ) {
     val presentDaysCount: Int
         get() = attendanceMap.values.count { it == AttendanceStatus.PRESENT }
@@ -73,14 +82,23 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
+    private val db = WageDatabase.getDatabase(application)
     private val repository: WageRepository = customRepository ?: WageRepository(
-        WageDatabase.getDatabase(application).wageRecordDao()
+        db.wageRecordDao(),
+        db.advanceRecordDao()
     )
 
     private val _uiState = MutableStateFlow(createInitialState())
     val uiState: StateFlow<WageUiState> = _uiState.asStateFlow()
 
     val historyRecords: StateFlow<List<WageRecord>> = repository.allRecords
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val allAdvances: StateFlow<List<AdvanceRecord>> = (repository.allAdvances ?: emptyFlow())
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -108,9 +126,120 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         )
     }
 
-    /**
-     * Updates daily wage input, converting any Devanagari numerals to ASCII digits.
-     */
+    // Navigation functions
+    fun openHomeScreen() {
+        _uiState.update { it.copy(currentScreen = AppScreen.MAIN_INPUT) }
+    }
+
+    fun openDaysCalculation() {
+        _uiState.update { it.copy(currentScreen = AppScreen.DAYS_CALCULATION) }
+    }
+
+    fun openAdvanceRecords() {
+        _uiState.update { it.copy(currentScreen = AppScreen.ADVANCE_RECORDS) }
+    }
+
+    fun openMonthCalculation() {
+        _uiState.update { it.copy(currentScreen = AppScreen.MONTH_CALCULATION) }
+    }
+
+    fun openHistoryScreen() {
+        _uiState.update { it.copy(currentScreen = AppScreen.HISTORY) }
+    }
+
+    // Days Calculation logic
+    fun onDaysDailyWageChange(value: String) {
+        val normalized = CurrencyUtils.normalizeDigits(value).filter { it.isDigit() || it == '.' }
+        if (normalized.count { it == '.' } <= 1) {
+            _uiState.update { it.copy(daysDailyWageInput = normalized) }
+        }
+    }
+
+    fun onDaysFullDaysChange(value: String) {
+        val normalized = CurrencyUtils.normalizeDigits(value).filter { it.isDigit() || it == '.' }
+        if (normalized.count { it == '.' } <= 1) {
+            _uiState.update { it.copy(daysFullDaysInput = normalized) }
+        }
+    }
+
+    fun onDaysHalfDaysChange(value: String) {
+        val normalized = CurrencyUtils.normalizeDigits(value).filter { it.isDigit() || it == '.' }
+        if (normalized.count { it == '.' } <= 1) {
+            _uiState.update { it.copy(daysHalfDaysInput = normalized) }
+        }
+    }
+
+    fun onDaysAdvanceChange(value: String) {
+        val normalized = CurrencyUtils.normalizeDigits(value).filter { it.isDigit() || it == '.' }
+        if (normalized.count { it == '.' } <= 1) {
+            _uiState.update { it.copy(daysAdvanceInput = normalized) }
+        }
+    }
+
+    fun calculateDaysWage() {
+        val state = _uiState.value
+        val dailyWage = state.daysDailyWageInput.toDoubleOrNull() ?: 0.0
+        val fullDays = state.daysFullDaysInput.toDoubleOrNull() ?: 0.0
+        val halfDays = state.daysHalfDaysInput.toDoubleOrNull() ?: 0.0
+        val advance = state.daysAdvanceInput.toDoubleOrNull() ?: 0.0
+
+        val totalEffectiveDays = fullDays + (halfDays * 0.5)
+        val grossWages = totalEffectiveDays * dailyWage
+        val netPayable = grossWages - advance
+
+        val result = DaysCalculationResult(
+            dailyWage = dailyWage,
+            fullDays = fullDays,
+            halfDays = halfDays,
+            totalEffectiveDays = totalEffectiveDays,
+            grossWages = grossWages,
+            advanceDeducted = advance,
+            netPayable = netPayable,
+            formattedDailyWage = CurrencyUtils.formatRupees(dailyWage),
+            formattedGrossWages = CurrencyUtils.formatRupees(grossWages),
+            formattedAdvance = CurrencyUtils.formatRupees(advance),
+            formattedNetPayable = CurrencyUtils.formatRupees(netPayable)
+        )
+
+        _uiState.update { it.copy(daysCalculationResult = result) }
+    }
+
+    fun resetDaysCalculation() {
+        _uiState.update {
+            it.copy(
+                daysDailyWageInput = "",
+                daysFullDaysInput = "",
+                daysHalfDaysInput = "",
+                daysAdvanceInput = "",
+                daysCalculationResult = null
+            )
+        }
+    }
+
+    // Advance record methods
+    fun saveAdvanceRecord(contractor: String, amount: String, date: String, notes: String) {
+        val parsedAmount = amount.toDoubleOrNull() ?: 0.0
+        if (parsedAmount <= 0.0) return
+
+        viewModelScope.launch {
+            repository.saveAdvance(
+                AdvanceRecord(
+                    contractorName = contractor,
+                    amount = parsedAmount,
+                    dateText = date,
+                    notes = notes
+                )
+            )
+        }
+    }
+
+    fun deleteAdvanceRecord(id: Long) {
+        viewModelScope.launch {
+            repository.deleteAdvance(id)
+        }
+    }
+
+    // Month calculation logic
     fun onWageInputChange(newValue: String) {
         val normalized = CurrencyUtils.normalizeDigits(newValue)
         val sanitized = normalized.filter { it.isDigit() || it == '.' }
@@ -124,9 +253,6 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Updates advance input field, converting Devanagari numerals to ASCII digits.
-     */
     fun onAdvanceInputChange(newValue: String) {
         val normalized = CurrencyUtils.normalizeDigits(newValue)
         val sanitized = normalized.filter { it.isDigit() || it == '.' }
@@ -138,13 +264,9 @@ class WageCalculatorViewModel @JvmOverloads constructor(
                 advanceInputError = null
             )
         }
-        // Recalculate wages immediately when advance changes
         calculateMonthlyWage()
     }
 
-    /**
-     * Updates selected month (1..12).
-     */
     fun onMonthSelected(month: Int) {
         if (month !in 1..12) return
         _uiState.update {
@@ -157,9 +279,6 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Updates selected year.
-     */
     fun onYearSelected(year: Int) {
         if (year <= 1900) return
         _uiState.update {
@@ -172,43 +291,20 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Validates input and transitions to calendar screen.
-     * Loads existing persistent record if previously saved for this month/year.
-     */
     fun proceedToCalendar(): Boolean {
         val currentState = _uiState.value
-        val wageTrimmed = currentState.dailyWageInput.trim()
+        val wage = currentState.dailyWageInput.toDoubleOrNull()
 
-        if (wageTrimmed.isEmpty()) {
-            _uiState.update { it.copy(wageInputError = "कृपया दैनिक मजदूरी दर्ज करें।") }
+        if (wage == null || wage <= 0.0) {
+            _uiState.update {
+                it.copy(wageInputError = "कृपया सही दैनिक मजदूरी दर्ज करें")
+            }
             return false
         }
 
-        val parsedWage = CurrencyUtils.parseDailyWage(wageTrimmed)
-        if (parsedWage == null || parsedWage <= 0.0) {
-            _uiState.update { it.copy(wageInputError = "कृपया सही मजदूरी दर्ज करें।") }
-            return false
-        }
+        val totalDaysInMonth = CalendarUtils.getDaysInMonth(currentState.selectedYear, currentState.selectedMonth)
+        val offset = CalendarUtils.getFirstDayOfWeekOffset(currentState.selectedYear, currentState.selectedMonth)
 
-        val daysCount = CalendarUtils.getDaysInMonth(currentState.selectedYear, currentState.selectedMonth)
-        val firstDayOffset = CalendarUtils.getFirstDayOfWeekOffset(currentState.selectedYear, currentState.selectedMonth)
-        val defaultAttendance = (1..daysCount).associateWith { AttendanceStatus.PRESENT }
-
-        _uiState.update {
-            it.copy(
-                wageInputError = null,
-                totalCalendarDays = daysCount,
-                firstDayOffset = firstDayOffset,
-                attendanceMap = defaultAttendance,
-                currentScreen = AppScreen.ATTENDANCE_CALENDAR,
-                saveConfirmationMessage = null,
-                isResultStale = false
-            )
-        }
-        calculateMonthlyWage()
-
-        // Check if saved persistent record already exists for this month and year
         viewModelScope.launch {
             val existingRecord = repository.getRecordByMonthAndYear(
                 currentState.selectedMonth,
@@ -216,127 +312,122 @@ class WageCalculatorViewModel @JvmOverloads constructor(
             )
 
             if (existingRecord != null) {
-                val restoredAttendance = if (existingRecord.attendanceData.isNotEmpty()) {
-                    AttendanceSerializer.deserialize(existingRecord.attendanceData, daysCount)
-                } else {
-                    defaultAttendance
-                }
-
-                val advanceStr = if (existingRecord.advanceAmount % 1.0 == 0.0) {
-                    existingRecord.advanceAmount.toInt().toString()
-                } else {
-                    existingRecord.advanceAmount.toString()
-                }
-
+                val parsedMap = AttendanceSerializer.deserialize(existingRecord.attendanceData, totalDaysInMonth)
                 _uiState.update {
                     it.copy(
-                        advanceInput = advanceStr,
-                        attendanceMap = restoredAttendance
+                        dailyWageInput = if (existingRecord.dailyWage > 0) existingRecord.dailyWage.toString() else currentState.dailyWageInput,
+                        advanceInput = existingRecord.advanceAmount.toString(),
+                        totalCalendarDays = totalDaysInMonth,
+                        firstDayOffset = offset,
+                        attendanceMap = parsedMap,
+                        currentScreen = AppScreen.ATTENDANCE_CALENDAR,
+                        wageInputError = null,
+                        advanceInputError = null,
+                        isResultStale = false
                     )
                 }
-                calculateMonthlyWage()
+            } else {
+                val initialAttendance = (1..totalDaysInMonth).associateWith { AttendanceStatus.PRESENT }
+                _uiState.update {
+                    it.copy(
+                        totalCalendarDays = totalDaysInMonth,
+                        firstDayOffset = offset,
+                        attendanceMap = initialAttendance,
+                        currentScreen = AppScreen.ATTENDANCE_CALENDAR,
+                        wageInputError = null,
+                        advanceInputError = null,
+                        isResultStale = false
+                    )
+                }
             }
+            calculateMonthlyWage()
         }
         return true
     }
 
-    /**
-     * Cycles attendance for a single day:
-     * 1st tap: Present -> Absent
-     * 2nd tap: Absent -> Half-Day
-     * 3rd tap: Half-Day -> Present
-     */
     fun toggleAttendance(dayOfMonth: Int) {
-        _uiState.update { state ->
-            val currentStatus = state.attendanceMap[dayOfMonth] ?: AttendanceStatus.PRESENT
-            val newStatus = currentStatus.next()
-            val updatedMap = state.attendanceMap.toMutableMap()
+        _uiState.update { current ->
+            val oldStatus = current.attendanceMap[dayOfMonth] ?: AttendanceStatus.PRESENT
+            val newStatus = oldStatus.next()
+            val updatedMap = current.attendanceMap.toMutableMap()
             updatedMap[dayOfMonth] = newStatus
-            state.copy(
+            current.copy(
                 attendanceMap = updatedMap,
+                isResultStale = true,
                 saveConfirmationMessage = null
             )
         }
         calculateMonthlyWage()
-        autoPersistCurrentCalculation()
     }
 
-    /**
-     * Marks all days in the month as Present.
-     */
     fun setAllPresent() {
-        _uiState.update { state ->
-            val allPresent = (1..state.totalCalendarDays).associateWith { AttendanceStatus.PRESENT }
-            state.copy(
-                attendanceMap = allPresent,
+        val totalDays = _uiState.value.totalCalendarDays
+        val newMap = (1..totalDays).associateWith { AttendanceStatus.PRESENT }
+        _uiState.update {
+            it.copy(
+                attendanceMap = newMap,
+                isResultStale = true,
                 saveConfirmationMessage = null
             )
         }
         calculateMonthlyWage()
-        autoPersistCurrentCalculation()
     }
 
-    /**
-     * Marks all days in the month as Absent.
-     */
     fun setAllAbsent() {
-        _uiState.update { state ->
-            val allAbsent = (1..state.totalCalendarDays).associateWith { AttendanceStatus.ABSENT }
-            state.copy(
-                attendanceMap = allAbsent,
+        val totalDays = _uiState.value.totalCalendarDays
+        val newMap = (1..totalDays).associateWith { AttendanceStatus.ABSENT }
+        _uiState.update {
+            it.copy(
+                attendanceMap = newMap,
+                isResultStale = true,
                 saveConfirmationMessage = null
             )
         }
         calculateMonthlyWage()
-        autoPersistCurrentCalculation()
     }
 
-    /**
-     * Calculates the monthly wage including Half-Days and Advance deduction.
-     * Paid Wage Days = Present Days + (Half-Days × 0.5)
-     * Gross Wages = Paid Wage Days × Daily Wage
-     * Remaining Payable Amount = Gross Wages − Advance
-     */
     fun calculateMonthlyWage() {
         val state = _uiState.value
-        val parsedWage = CurrencyUtils.parseDailyWage(state.dailyWageInput) ?: return
-        val advance = CurrencyUtils.parseDailyWage(state.advanceInput) ?: 0.0
+        val dailyWage = state.dailyWageInput.toDoubleOrNull() ?: 0.0
+        val advance = state.advanceInput.toDoubleOrNull() ?: 0.0
 
-        val presentDays = state.presentDaysCount
-        val halfDays = state.halfDaysCount
-        val absentDays = state.absentDaysCount
+        val presentCount = state.presentDaysCount
+        val halfDaysCount = state.halfDaysCount
+        val absentCount = state.absentDaysCount
+        val totalDays = state.totalCalendarDays
+        val paidWageDays = state.paidWageDays
 
-        val paidDays = presentDays + (halfDays * 0.5)
-        val grossWages = paidDays * parsedWage
+        val grossWages = paidWageDays * dailyWage
         val remainingPayable = grossWages - advance
-        val isAdvanceExcess = advance > grossWages
+        val isAdvanceExcess = remainingPayable < 0.0
 
-        val formattedDaily = CurrencyUtils.formatIndianRupees(parsedWage)
-        val formattedGross = CurrencyUtils.formatIndianRupees(grossWages)
-        val formattedAdv = CurrencyUtils.formatIndianRupees(advance)
-        val formattedRemaining = CurrencyUtils.formatIndianRupees(remainingPayable)
-        val monthHindi = CalendarUtils.getHindiMonthName(state.selectedMonth)
+        val monthItem = com.example.model.HINDI_MONTHS.firstOrNull { it.monthNumber == state.selectedMonth }
+        val monthName = monthItem?.hindiName ?: "महीना"
 
-        val paidDaysDisplay = if (paidDays % 1.0 == 0.0) paidDays.toInt().toString() else paidDays.toString()
-        val formulaText = "$paidDaysDisplay दिन × $formattedDaily = $formattedGross"
+        val formulaText = buildString {
+            append("$paidWageDays दिन ($presentCount पूरा + $halfDaysCount आधा) × ₹${dailyWage.toInt()} = ₹${grossWages.toInt()}")
+            if (advance > 0) {
+                append(" - एडवांस ₹${advance.toInt()} = ₹${remainingPayable.toInt()}")
+            }
+        }
 
         val result = CalculationResult(
-            monthName = monthHindi,
+            monthName = monthName,
             year = state.selectedYear,
-            totalDays = state.totalCalendarDays,
-            presentDays = presentDays,
-            halfDays = halfDays,
-            absentDays = absentDays,
-            paidWageDays = paidDays,
-            dailyWage = parsedWage,
+            totalDays = totalDays,
+            presentDays = presentCount,
+            halfDays = halfDaysCount,
+            absentDays = absentCount,
+            paidWageDays = paidWageDays,
+            dailyWage = dailyWage,
             grossWages = grossWages,
             advanceAmount = advance,
             remainingPayable = remainingPayable,
             isAdvanceExcess = isAdvanceExcess,
-            formattedDailyWage = formattedDaily,
-            formattedGrossWages = formattedGross,
-            formattedAdvance = formattedAdv,
-            formattedRemainingPayable = formattedRemaining,
+            formattedDailyWage = CurrencyUtils.formatRupees(dailyWage),
+            formattedGrossWages = CurrencyUtils.formatRupees(grossWages),
+            formattedAdvance = CurrencyUtils.formatRupees(advance),
+            formattedRemainingPayable = CurrencyUtils.formatRupees(remainingPayable),
             calculationFormulaText = formulaText
         )
 
@@ -348,120 +439,61 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Saves or updates the current month's calculation to Room database automatically.
-     */
-    private fun autoPersistCurrentCalculation() {
-        val result = _uiState.value.calculationResult ?: return
-        val month = _uiState.value.selectedMonth
-        val year = _uiState.value.selectedYear
-        val attendanceStr = AttendanceSerializer.serialize(_uiState.value.attendanceMap)
+    fun onSaveCalculationClick() {
+        val state = _uiState.value
+        val result = state.calculationResult ?: return
 
         viewModelScope.launch {
-            val existing = repository.getRecordByMonthAndYear(month, year)
-            saveRecordInternal(
-                result = result,
-                month = month,
-                year = year,
-                attendanceData = attendanceStr,
-                existingId = existing?.id ?: 0,
-                showFeedback = false
+            val existing = repository.getRecordByMonthAndYear(state.selectedMonth, state.selectedYear)
+            if (existing != null) {
+                _uiState.update { it.copy(duplicateRecordPrompt = existing) }
+            } else {
+                doSaveNewRecord(state, result)
+            }
+        }
+    }
+
+    private suspend fun doSaveNewRecord(state: WageUiState, result: CalculationResult) {
+        val record = buildWageRecord(state, result, existingId = 0)
+        repository.saveRecord(record)
+        _uiState.update {
+            it.copy(
+                saveConfirmationMessage = "हिसाब सुरक्षित हो गया!",
+                duplicateRecordPrompt = null
             )
         }
     }
 
-    /**
-     * Directly saves calculation (suspend, useful for synchronous persistence or programmatic save).
-     */
-    suspend fun saveCalculationDirectly() {
-        val result = _uiState.value.calculationResult ?: return
-        val month = _uiState.value.selectedMonth
-        val year = _uiState.value.selectedYear
-        val attendanceStr = AttendanceSerializer.serialize(_uiState.value.attendanceMap)
-        val existing = repository.getRecordByMonthAndYear(month, year)
-        saveRecordInternal(
-            result = result,
-            month = month,
-            year = year,
-            attendanceData = attendanceStr,
-            existingId = existing?.id ?: 0,
-            showFeedback = true
-        )
-    }
-
-    /**
-     * Explicit save triggered by "हिसाब सेव करें" button.
-     */
-    fun onSaveCalculationClick() {
-        val result = _uiState.value.calculationResult ?: return
-        val month = _uiState.value.selectedMonth
-        val year = _uiState.value.selectedYear
-        val attendanceStr = AttendanceSerializer.serialize(_uiState.value.attendanceMap)
+    fun confirmUpdateExistingRecord() {
+        val state = _uiState.value
+        val result = state.calculationResult ?: return
+        val existing = state.duplicateRecordPrompt ?: return
 
         viewModelScope.launch {
-            val existing = repository.getRecordByMonthAndYear(month, year)
-            if (existing != null) {
-                // If record exists, prompt for update
-                _uiState.update { it.copy(duplicateRecordPrompt = existing) }
-            } else {
-                saveRecordInternal(
-                    result = result,
-                    month = month,
-                    year = year,
-                    attendanceData = attendanceStr,
-                    existingId = 0,
-                    showFeedback = true
+            val record = buildWageRecord(state, result, existingId = existing.id)
+            repository.updateRecord(record)
+            _uiState.update {
+                it.copy(
+                    saveConfirmationMessage = "मौजूदा हिसाब अपडेट हो गया!",
+                    duplicateRecordPrompt = null
                 )
             }
         }
     }
 
-    /**
-     * Confirms updating the existing record for the same month and year.
-     */
-    fun confirmUpdateExistingRecord() {
-        val prompt = _uiState.value.duplicateRecordPrompt ?: return
-        val result = _uiState.value.calculationResult ?: return
-        val month = _uiState.value.selectedMonth
-        val year = _uiState.value.selectedYear
-        val attendanceStr = AttendanceSerializer.serialize(_uiState.value.attendanceMap)
-
-        viewModelScope.launch {
-            saveRecordInternal(
-                result = result,
-                month = month,
-                year = year,
-                attendanceData = attendanceStr,
-                existingId = prompt.id,
-                showFeedback = true
-            )
-            _uiState.update { it.copy(duplicateRecordPrompt = null) }
-        }
-    }
-
-    /**
-     * Dismisses duplicate record prompt.
-     */
     fun dismissDuplicatePrompt() {
         _uiState.update { it.copy(duplicateRecordPrompt = null) }
     }
 
-    private suspend fun saveRecordInternal(
-        result: CalculationResult,
-        month: Int,
-        year: Int,
-        attendanceData: String,
-        existingId: Long,
-        showFeedback: Boolean
-    ) {
+    private fun buildWageRecord(state: WageUiState, result: CalculationResult, existingId: Long): WageRecord {
         val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale("hi", "IN"))
         val formattedDate = sdf.format(Date())
 
-        val record = WageRecord(
+        return WageRecord(
             id = existingId,
-            month = month,
+            month = state.selectedMonth,
             monthHindiName = result.monthName,
-            year = year,
+            year = state.selectedYear,
             dailyWage = result.dailyWage,
             totalCalendarDays = result.totalDays,
             presentDays = result.presentDays,
@@ -471,7 +503,7 @@ class WageCalculatorViewModel @JvmOverloads constructor(
             grossWages = result.grossWages,
             advanceAmount = result.advanceAmount,
             remainingPayable = result.remainingPayable,
-            attendanceData = attendanceData,
+            attendanceData = AttendanceSerializer.serialize(state.attendanceMap),
             formattedDailyWage = result.formattedDailyWage,
             formattedGrossWages = result.formattedGrossWages,
             formattedAdvance = result.formattedAdvance,
@@ -480,69 +512,22 @@ class WageCalculatorViewModel @JvmOverloads constructor(
             timestamp = System.currentTimeMillis(),
             savedDateTimeText = formattedDate
         )
-
-        if (existingId > 0) {
-            repository.updateRecord(record)
-            if (showFeedback) {
-                _uiState.update {
-                    it.copy(saveConfirmationMessage = "हिसाब सफलतापूर्वक अपडेट हो गया।")
-                }
-            }
-        } else {
-            repository.saveRecord(record)
-            if (showFeedback) {
-                _uiState.update {
-                    it.copy(saveConfirmationMessage = "हिसाब सफलतापूर्वक सेव हो गया।")
-                }
-            }
-        }
     }
 
-    /**
-     * Clears confirmation message snackbar/banner.
-     */
-    fun clearConfirmationMessage() {
-        _uiState.update { it.copy(saveConfirmationMessage = null) }
-    }
-
-    /**
-     * Navigates to the History screen.
-     */
-    fun openHistoryScreen() {
-        _uiState.update {
-            it.copy(currentScreen = AppScreen.HISTORY)
-        }
-    }
-
-    /**
-     * Opens a saved monthly record from History directly into the Attendance Calendar screen.
-     */
     fun openRecordFromHistory(record: WageRecord) {
-        val daysCount = record.totalCalendarDays
-        val firstDayOffset = CalendarUtils.getFirstDayOfWeekOffset(record.year, record.month)
-        val attendance = AttendanceSerializer.deserialize(record.attendanceData, daysCount)
-
-        val wageStr = if (record.dailyWage % 1.0 == 0.0) {
-            record.dailyWage.toInt().toString()
-        } else {
-            record.dailyWage.toString()
-        }
-
-        val advanceStr = if (record.advanceAmount % 1.0 == 0.0) {
-            record.advanceAmount.toInt().toString()
-        } else {
-            record.advanceAmount.toString()
-        }
+        val totalDays = record.totalCalendarDays
+        val offset = CalendarUtils.getFirstDayOfWeekOffset(record.year, record.month)
+        val parsedMap = AttendanceSerializer.deserialize(record.attendanceData, totalDays)
 
         _uiState.update {
             it.copy(
+                dailyWageInput = record.dailyWage.toInt().toString(),
+                advanceInput = record.advanceAmount.toInt().toString(),
                 selectedMonth = record.month,
                 selectedYear = record.year,
-                dailyWageInput = wageStr,
-                advanceInput = advanceStr,
-                totalCalendarDays = daysCount,
-                firstDayOffset = firstDayOffset,
-                attendanceMap = attendance,
+                totalCalendarDays = totalDays,
+                firstDayOffset = offset,
+                attendanceMap = parsedMap,
                 currentScreen = AppScreen.ATTENDANCE_CALENDAR,
                 saveConfirmationMessage = null,
                 selectedHistoryRecord = null
@@ -551,36 +536,18 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         calculateMonthlyWage()
     }
 
-    /**
-     * Opens record details modal.
-     */
     fun openRecordDetail(record: WageRecord) {
-        _uiState.update {
-            it.copy(selectedHistoryRecord = record)
-        }
+        _uiState.update { it.copy(selectedHistoryRecord = record) }
     }
 
-    /**
-     * Closes record details modal.
-     */
     fun closeRecordDetail() {
-        _uiState.update {
-            it.copy(selectedHistoryRecord = null)
-        }
+        _uiState.update { it.copy(selectedHistoryRecord = null) }
     }
 
-    /**
-     * Prompts confirmation dialog to delete a single history record.
-     */
     fun requestDeleteRecord(record: WageRecord) {
-        _uiState.update {
-            it.copy(showDeleteConfirmDialog = record)
-        }
+        _uiState.update { it.copy(showDeleteConfirmDialog = record) }
     }
 
-    /**
-     * Confirms deletion of the selected history record.
-     */
     fun confirmDeleteRecord() {
         val record = _uiState.value.showDeleteConfirmDialog ?: return
         viewModelScope.launch {
@@ -594,23 +561,14 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Dismisses the single record delete dialog.
-     */
     fun dismissDeleteConfirm() {
         _uiState.update { it.copy(showDeleteConfirmDialog = null) }
     }
 
-    /**
-     * Prompts confirmation dialog to delete all history records.
-     */
     fun requestDeleteAllRecords() {
         _uiState.update { it.copy(showDeleteAllConfirmDialog = true) }
     }
 
-    /**
-     * Confirms deletion of all history records.
-     */
     fun confirmDeleteAllRecords() {
         viewModelScope.launch {
             repository.deleteAllRecords()
@@ -623,20 +581,12 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Dismisses the delete-all confirmation dialog.
-     */
     fun dismissDeleteAllConfirm() {
         _uiState.update { it.copy(showDeleteAllConfirmDialog = false) }
     }
 
-    /**
-     * Resets the entire calculator state and returns to MainInputScreen.
-     * Note: Does NOT delete saved history records!
-     */
     fun startNewCalculation() {
         val (prevMonth, prevYear) = CalendarUtils.getPreviousMonthAndYear()
-
         _uiState.update {
             it.copy(
                 dailyWageInput = "",
@@ -655,9 +605,6 @@ class WageCalculatorViewModel @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Navigates back to Main Input screen.
-     */
     fun navigateBackToInput() {
         _uiState.update {
             it.copy(

@@ -103,10 +103,31 @@ data class CalculationResult(
 }
 
 /**
+ * Result of direct days-based calculation.
+ */
+data class DaysCalculationResult(
+    val dailyWage: Double,
+    val fullDays: Double,
+    val halfDays: Double,
+    val totalEffectiveDays: Double,
+    val grossWages: Double,
+    val advanceDeducted: Double,
+    val netPayable: Double,
+    val formattedDailyWage: String,
+    val formattedGrossWages: String,
+    val formattedAdvance: String,
+    val formattedNetPayable: String
+)
+
+/**
  * Navigation screen state.
  */
 enum class AppScreen {
     MAIN_INPUT,
+    MONTH_CALCULATION,
+    DAYS_CALCULATION,
+    ADVANCE_RECORDS,
     ATTENDANCE_CALENDAR,
     HISTORY
 }
+

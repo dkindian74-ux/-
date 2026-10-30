@@ -13,9 +13,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.AppScreen
+import com.example.ui.screens.AdvanceRecordsScreen
 import com.example.ui.screens.AttendanceCalendarScreen
+import com.example.ui.screens.DaysCalculationScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.MainInputScreen
+import com.example.ui.screens.MonthCalculationScreen
 import com.example.ui.theme.MeriMazdooriTheme
 import com.example.viewmodel.WageCalculatorViewModel
 import com.google.android.gms.ads.MobileAds
@@ -56,19 +59,49 @@ fun MeriMazdooriApp(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val historyRecords by viewModel.historyRecords.collectAsStateWithLifecycle()
+    val allAdvances by viewModel.allAdvances.collectAsStateWithLifecycle()
 
     when (uiState.currentScreen) {
         AppScreen.MAIN_INPUT -> {
             MainInputScreen(
-                uiState = uiState,
                 historyCount = historyRecords.size,
+                onOpenDaysCalculation = viewModel::openDaysCalculation,
+                onOpenAdvanceRecords = viewModel::openAdvanceRecords,
+                onOpenMonthCalculation = viewModel::openMonthCalculation,
+                onOpenHistory = viewModel::openHistoryScreen
+            )
+        }
+        AppScreen.MONTH_CALCULATION -> {
+            MonthCalculationScreen(
+                uiState = uiState,
                 onWageChange = viewModel::onWageInputChange,
                 onMonthSelected = viewModel::onMonthSelected,
                 onYearSelected = viewModel::onYearSelected,
                 onProceed = {
                     viewModel.proceedToCalendar()
                 },
-                onOpenHistory = viewModel::openHistoryScreen
+                onBack = viewModel::openHomeScreen
+            )
+        }
+        AppScreen.DAYS_CALCULATION -> {
+            DaysCalculationScreen(
+                uiState = uiState,
+                onDailyWageChange = viewModel::onDaysDailyWageChange,
+                onFullDaysChange = viewModel::onDaysFullDaysChange,
+                onHalfDaysChange = viewModel::onDaysHalfDaysChange,
+                onAdvanceChange = viewModel::onDaysAdvanceChange,
+                onCalculate = viewModel::calculateDaysWage,
+                onReset = viewModel::resetDaysCalculation,
+                onBack = viewModel::openHomeScreen
+            )
+        }
+        AppScreen.ADVANCE_RECORDS -> {
+            AdvanceRecordsScreen(
+                uiState = uiState,
+                advanceRecords = allAdvances,
+                onSaveAdvance = viewModel::saveAdvanceRecord,
+                onDeleteAdvance = viewModel::deleteAdvanceRecord,
+                onBack = viewModel::openHomeScreen
             )
         }
         AppScreen.ATTENDANCE_CALENDAR -> {
@@ -83,7 +116,7 @@ fun MeriMazdooriApp(
                 onConfirmUpdateExisting = viewModel::confirmUpdateExistingRecord,
                 onDismissDuplicatePrompt = viewModel::dismissDuplicatePrompt,
                 onStartNewCalculation = viewModel::startNewCalculation,
-                onBack = viewModel::navigateBackToInput
+                onBack = viewModel::openMonthCalculation
             )
         }
         AppScreen.HISTORY -> {
@@ -101,7 +134,7 @@ fun MeriMazdooriApp(
                 onRequestDeleteAll = viewModel::requestDeleteAllRecords,
                 onConfirmDeleteAll = viewModel::confirmDeleteAllRecords,
                 onDismissDeleteAll = viewModel::dismissDeleteAllConfirm,
-                onBack = viewModel::navigateBackToInput
+                onBack = viewModel::openHomeScreen
             )
         }
     }
